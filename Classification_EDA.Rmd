@@ -1,0 +1,187 @@
+---
+title: "Classification_EDA"
+output: html_document
+date: "2024-07-29"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Packages
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(gridExtra) # for gridarrange
+library(grid) # for title 
+library(yardstick)
+library(prodlim)
+library(pec)
+library(dials)
+library(themis)
+```
+
+```{r}
+train <- read_csv("train_class.csv")
+dim(train)
+which((train[, 5] == train[, 34]) == FALSE) # identical rows 
+train <- train[, -34] # should do this before 
+
+head(train)
+dim(train)
+colnames(train)
+```
+
+## Check NA
+All have 37 N/A values 
+income_per_cap_2016, income_per_cap_2017, income_per_cap_2018, income_per_cap_2019, income_per_cap_2020
+gdp_2016, gdp_2017, gdp_2018, gdp_2019, gdp_2020 
+
+aka columns 116-125 in R
+```{r eval=FALSE, include=FALSE}
+# check NA
+check_num_na <- function(data) {
+  print(sum(is.na(data)))
+}
+
+check_where_na <- function(data) {
+    print(which(is.na(data)))
+}
+
+is_there_na <- vapply(train, check_num_na, numeric(1)) 
+for (i in 1:length(is_there_na)) {
+  if (is_there_na[i] > 0) {
+    print(is_there_na[i])
+  }
+}
+
+sapply(train[116:125], check_where_na)
+```
+
+## Dealing with NA for Income 
+```{r}
+train_no_na_rows <- train %>% drop_na()
+income_per_cap_2016_hist <- ggplot(train_no_na_rows, aes(x = income_per_cap_2016)) + geom_histogram(bins = 30)
+income_per_cap_2017_hist <- ggplot(train_no_na_rows, aes(x = income_per_cap_2017)) + geom_histogram(bins = 30)
+income_per_cap_2018_hist <- ggplot(train_no_na_rows, aes(x = income_per_cap_2018)) + geom_histogram(bins = 30)
+income_per_cap_2019_hist <- ggplot(train_no_na_rows, aes(x = income_per_cap_2019)) + geom_histogram(bins = 30)
+income_per_cap_2020_hist <- ggplot(train_no_na_rows, aes(x = income_per_cap_2020)) + geom_histogram(bins = 30)
+grid.arrange(income_per_cap_2016_hist, income_per_cap_2017_hist, income_per_cap_2018_hist, income_per_cap_2019_hist, income_per_cap_2020_hist, top = textGrob("Histogram of Income_Per_Cap by Year (Removed NA Values)",gp=gpar(fontsize=10,font=3)))
+
+## fill na with mean 
+train_fill_na_with_mean <- train %>% mutate_all(~ifelse(is.na(.x), mean(.x, na.rm = TRUE), .x))
+data <- train_fill_na_with_mean
+income_per_cap_2016_hist_mean <- ggplot(data, aes(x = income_per_cap_2016)) + geom_histogram(bins = 30)
+income_per_cap_2017_hist_mean <- ggplot(data, aes(x = income_per_cap_2017)) + geom_histogram(bins = 30)
+income_per_cap_2018_hist_mean <- ggplot(data, aes(x = income_per_cap_2018)) + geom_histogram(bins = 30)
+income_per_cap_2019_hist_mean <- ggplot(data, aes(x = income_per_cap_2019)) + geom_histogram(bins = 30)
+income_per_cap_2020_hist_mean <- ggplot(data, aes(x = income_per_cap_2020)) + geom_histogram(bins = 30)
+grid.arrange(income_per_cap_2016_hist, income_per_cap_2017_hist, income_per_cap_2018_hist, income_per_cap_2019_hist, income_per_cap_2020_hist, top = textGrob("Histogram of Income_Per_Cap by Year (Replace NA Values with Mean)",gp=gpar(fontsize=10,font=3)))
+
+# fill with median 
+train_fill_na_with_median <- train %>% mutate_all(~ifelse(is.na(.x), median(.x, na.rm = TRUE), .x))
+data <- train_fill_na_with_median
+income_per_cap_2016_hist_median <- ggplot(data, aes(x = income_per_cap_2016)) + geom_histogram(bins = 30)
+income_per_cap_2017_hist_median <- ggplot(data, aes(x = income_per_cap_2017)) + geom_histogram(bins = 30)
+income_per_cap_2018_hist_median <- ggplot(data, aes(x = income_per_cap_2018)) + geom_histogram(bins = 30)
+income_per_cap_2019_hist_median <- ggplot(data, aes(x = income_per_cap_2019)) + geom_histogram(bins = 30)
+income_per_cap_2020_hist_median <- ggplot(data, aes(x = income_per_cap_2020)) + geom_histogram(bins = 30)
+grid.arrange(income_per_cap_2016_hist, income_per_cap_2017_hist, income_per_cap_2018_hist, income_per_cap_2019_hist, income_per_cap_2020_hist, top = textGrob("Histogram of Income_Per_Cap by Year (Replace NA Values with Median)",gp=gpar(fontsize=10,font=3)))
+```
+
+```{r}
+income_per_cap_2016_box <- ggplot(train_no_na_rows, aes(x = income_per_cap_2016)) + geom_boxplot() + xlab("Income_Per_Cap_2016 (Removed NA Values)")
+income_per_cap_2016_box_mean <- ggplot(train_fill_na_with_mean, aes(x = income_per_cap_2016)) + geom_boxplot() + xlab("Income_Per_Cap_2016 (Replace NA Values with Mean)")
+income_per_cap_2016_box_median <- ggplot(train_fill_na_with_median, aes(x = income_per_cap_2016)) + geom_boxplot() + xlab("Income_Per_Cap_2016 (Replace NA Values with Median)")
+grid.arrange(income_per_cap_2016_box, income_per_cap_2016_box_mean, income_per_cap_2016_box_median, top = textGrob("Boxplot of Income_Per_Cap for 2016",gp=gpar(fontsize=10,font=3)))
+
+income_per_cap_2017_box <- ggplot(train_no_na_rows, aes(x = income_per_cap_2017)) + geom_boxplot() + xlab("Income_Per_Cap_2017 (Removed NA Values)")
+income_per_cap_2017_box_mean <- ggplot(train_fill_na_with_mean, aes(x = income_per_cap_2017)) + geom_boxplot() + xlab("Income_Per_Cap_2017 (Replace NA Values with Mean)")
+income_per_cap_2017_box_median <- ggplot(train_fill_na_with_median, aes(x = income_per_cap_2017)) + geom_boxplot() + xlab("Income_Per_Cap_2017 (Replace NA Values with Median)")
+grid.arrange(income_per_cap_2017_box, income_per_cap_2017_box_mean, income_per_cap_2017_box_median, top = textGrob("Boxplot of Income_Per_Cap for 2017",gp=gpar(fontsize=10,font=3)))
+
+income_per_cap_2018_box <- ggplot(train_no_na_rows, aes(x = income_per_cap_2018)) + geom_boxplot() + xlab("Income_Per_Cap_2018 (Removed NA Values)")
+income_per_cap_2018_box_mean <- ggplot(train_fill_na_with_mean, aes(x = income_per_cap_2018)) + geom_boxplot() + xlab("Income_Per_Cap_2018 (Replace NA Values with Mean)")
+income_per_cap_2018_box_median <- ggplot(train_fill_na_with_median, aes(x = income_per_cap_2018)) + geom_boxplot() + xlab("Income_Per_Cap_2018 (Replace NA Values with Median)")
+grid.arrange(income_per_cap_2018_box, income_per_cap_2018_box_mean, income_per_cap_2018_box_median, top = textGrob("Boxplot of Income_Per_Cap for 2018",gp=gpar(fontsize=10,font=3)))
+
+train_fill_na_with_mean <- train %>% mutate_all(~ifelse(is.na(.x), mean(.x, na.rm = TRUE), .x))
+train_fill_na_with_median <- train %>% mutate_all(~ifelse(is.na(.x), median(.x, na.rm = TRUE), .x))
+income_per_cap_2019_box <- ggplot(train_no_na_rows, aes(x = income_per_cap_2019)) + geom_boxplot() + xlab("Income_Per_Cap_2019 (Removed NA Values)")
+income_per_cap_2019_box_mean <- ggplot(train_fill_na_with_mean, aes(x = income_per_cap_2019)) + geom_boxplot() + xlab("Income_Per_Cap_2019 (Replace NA Values with Mean)")
+income_per_cap_2019_box_median <- ggplot(train_fill_na_with_median, aes(x = income_per_cap_2019)) + geom_boxplot() + xlab("Income_Per_Cap_2019 (Replace NA Values with Median)")
+grid.arrange(income_per_cap_2019_box, income_per_cap_2019_box_mean, income_per_cap_2019_box_median, top = textGrob("Boxplot of Income_Per_Cap for 2019",gp=gpar(fontsize=10,font=3)))
+
+income_per_cap_2020_box <- ggplot(train_no_na_rows, aes(x = income_per_cap_2020)) + geom_boxplot() + xlab("Income_Per_Cap_2020 (Removed NA Values)")
+income_per_cap_2020_box_mean <- ggplot(train_fill_na_with_mean, aes(x = income_per_cap_2020)) + geom_boxplot() + xlab("Income_Per_Cap_2020 (Replace NA Values with Mean)")
+income_per_cap_2020_box_median <- ggplot(train_fill_na_with_median, aes(x = income_per_cap_2020)) + geom_boxplot() + xlab("Income_Per_Cap_2020 (Replace NA Values with Median)")
+grid.arrange(income_per_cap_2020_box, income_per_cap_2020_box_mean, income_per_cap_2020_box_median, top = textGrob("Boxplot of Income_Per_Cap for 2020",gp=gpar(fontsize=10,font=3)))
+
+```
+
+## Dealing with NA for GDP
+```{r}
+gdp_2016_box <- ggplot(train_no_na_rows, aes(x = gdp_2016)) + geom_boxplot() + xlab("gdp_2016 (Removed NA Values)")
+gdp_2016_box_mean <- ggplot(train_fill_na_with_mean, aes(x = gdp_2016)) + geom_boxplot() + xlab("gdp_2016 (Replace NA Values with Mean)")
+gdp_2016_box_median <- ggplot(train_fill_na_with_median, aes(x = gdp_2016)) + geom_boxplot() + xlab("gdp_2016 (Replace NA Values with Median)")
+grid.arrange(gdp_2016_box, gdp_2016_box_mean, gdp_2016_box_median, top = textGrob("Boxplot of GDP for the county in 2016",gp=gpar(fontsize=10,font=3)))
+
+gdp_2017_box <- ggplot(train_no_na_rows, aes(x = gdp_2017)) + geom_boxplot() + xlab("gdp_2017 (Removed NA Values)")
+gdp_2017_box_mean <- ggplot(train_fill_na_with_mean, aes(x = gdp_2017)) + geom_boxplot() + xlab("gdp_2017 (Replace NA Values with Mean)")
+gdp_2017_box_median <- ggplot(train_fill_na_with_median, aes(x = gdp_2017)) + geom_boxplot() + xlab("gdp_2017 (Replace NA Values with Median)")
+grid.arrange(gdp_2017_box, gdp_2017_box_mean, gdp_2017_box_median, top = textGrob("Boxplot of GDP for the county in 2017",gp=gpar(fontsize=10,font=3)))
+
+gdp_2018_box <- ggplot(train_no_na_rows, aes(x = gdp_2018)) + geom_boxplot() + xlab("gdp_2018 (Removed NA Values)")
+gdp_2018_box_mean <- ggplot(train_fill_na_with_mean, aes(x = gdp_2018)) + geom_boxplot() + xlab("gdp_2018 (Replace NA Values with Mean)")
+gdp_2018_box_median <- ggplot(train_fill_na_with_median, aes(x = gdp_2018)) + geom_boxplot() + xlab("gdp_2018 (Replace NA Values with Median)")
+grid.arrange(gdp_2018_box, gdp_2018_box_mean, gdp_2018_box_median, top = textGrob("Boxplot of GDP for the county in 2018",gp=gpar(fontsize=10,font=3)))
+
+gdp_2019_box <- ggplot(train_no_na_rows, aes(x = gdp_2019)) + geom_boxplot() + xlab("gdp_2019 (Removed NA Values)")
+gdp_2019_box_mean <- ggplot(train_fill_na_with_mean, aes(x = gdp_2019)) + geom_boxplot() + xlab("gdp_2019 (Replace NA Values with Mean)")
+gdp_2019_box_median <- ggplot(train_fill_na_with_median, aes(x = gdp_2019)) + geom_boxplot() + xlab("gdp_2019 (Replace NA Values with Median)")
+grid.arrange(gdp_2019_box, gdp_2019_box_mean, gdp_2019_box_median, top = textGrob("Boxplot of GDP for the county in 2019",gp=gpar(fontsize=10,font=3)))
+
+gdp_2020_box <- ggplot(train_no_na_rows, aes(x = gdp_2020)) + geom_boxplot() + xlab("gdp_2020 (Removed NA Values)")
+gdp_2020_box_mean <- ggplot(train_fill_na_with_mean, aes(x = gdp_2020)) + geom_boxplot() + xlab("gdp_2020 (Replace NA Values with Mean)")
+gdp_2020_box_median <- ggplot(train_fill_na_with_median, aes(x = gdp_2020)) + geom_boxplot() + xlab("gdp_2020 (Replace NA Values with Median)")
+grid.arrange(gdp_2020_box, gdp_2020_box_mean, gdp_2020_box_median, top = textGrob("Boxplot of GDP for the county in 2020",gp=gpar(fontsize=10,font=3)))
+```
+
+
+```{r}
+data <- train_no_na_rows
+gdp_2016_hist <- ggplot(data, aes(x = gdp_2016)) + geom_histogram(bins = 30) + scale_x_continuous(breaks = seq(0, 800000000, 100000000))
+gdp_2017_hist <- ggplot(data, aes(x = gdp_2017)) + geom_histogram(bins = 30) + scale_x_continuous(breaks = seq(0, 800000000, 100000000))
+gdp_2018_hist <- ggplot(data, aes(x = gdp_2018)) + geom_histogram(bins = 30) + scale_x_continuous(breaks = seq(0, 800000000, 100000000))
+gdp_2019_hist <- ggplot(data, aes(x = gdp_2019)) + geom_histogram(bins = 30) + scale_x_continuous(breaks = seq(0, 800000000, 100000000))
+gdp_2020_hist <- ggplot(data, aes(x = gdp_2020)) + geom_histogram(bins = 30) + scale_x_continuous(breaks = seq(0, 800000000, 100000000))
+grid.arrange(gdp_2016_hist, gdp_2017_hist, gdp_2018_hist, gdp_2019_hist, gdp_2020_hist, top = textGrob("Histogram of Income_Per_Cap by Year (Removed NA Values)",gp=gpar(fontsize=10,font=3)))
+
+data <- train_fill_na_with_mean
+gdp_2016_hist_mean <- ggplot(data, aes(x = gdp_2016)) + geom_histogram(bins = 30) + scale_x_continuous(breaks = seq(0, 800000000, 100000000))
+gdp_2017_hist_mean <- ggplot(data, aes(x = gdp_2017)) + geom_histogram(bins = 30) + scale_x_continuous(breaks = seq(0, 800000000, 100000000))
+gdp_2018_hist_mean <- ggplot(data, aes(x = gdp_2018)) + geom_histogram(bins = 30) + scale_x_continuous(breaks = seq(0, 800000000, 100000000))
+gdp_2019_hist_mean <- ggplot(data, aes(x = gdp_2019)) + geom_histogram(bins = 30) + scale_x_continuous(breaks = seq(0, 800000000, 100000000))
+gdp_2020_hist_mean <- ggplot(data, aes(x = gdp_2020)) + geom_histogram(bins = 30) + scale_x_continuous(breaks = seq(0, 800000000, 100000000))
+grid.arrange(gdp_2016_hist, gdp_2017_hist, gdp_2018_hist, gdp_2019_hist, gdp_2020_hist, top = textGrob("Histogram of Income_Per_Cap by Year (Fill NA Values with Average GDP Across All Counties)",gp=gpar(fontsize=10,font=3)))
+
+data <- train_fill_na_with_median
+gdp_2016_hist_median <- ggplot(data, aes(x = gdp_2016)) + geom_histogram(bins = 30) + scale_x_continuous(breaks = seq(0, 800000000, 100000000))
+gdp_2017_hist_median <- ggplot(data, aes(x = gdp_2017)) + geom_histogram(bins = 30) + scale_x_continuous(breaks = seq(0, 800000000, 100000000))
+gdp_2018_hist_median <- ggplot(data, aes(x = gdp_2018)) + geom_histogram(bins = 30) + scale_x_continuous(breaks = seq(0, 800000000, 100000000))
+gdp_2019_hist_median <- ggplot(data, aes(x = gdp_2019)) + geom_histogram(bins = 30) + scale_x_continuous(breaks = seq(0, 800000000, 100000000))
+gdp_2020_hist_median <- ggplot(data, aes(x = gdp_2020)) + geom_histogram(bins = 30) + scale_x_continuous(breaks = seq(0, 800000000, 100000000))
+grid.arrange(gdp_2016_hist, gdp_2017_hist, gdp_2018_hist, gdp_2019_hist, gdp_2020_hist, top = textGrob("Histogram of Income_Per_Cap by Year (Fill NA Values with Median GDP Across All Counties)",gp=gpar(fontsize=10,font=3)))
+```
+
+## Rebalancing the DataSet
+```{r}
+train %>% count(winner) %>% ggplot(aes(x = winner, y = n)) + geom_col() + ggtitle("Proportion of Winners Amongst Train Data") + ylab("Count") + xlab("Winner")
+
+train_removed_downsample <- recipe(winner ~., data = train) %>% 
+  step_downsample(winner) %>% 
+  prep() %>% 
+  juice()
+
+train_removed_downsample %>% count(winner) %>% ggplot(aes(x = winner, y = n)) + geom_col() + ggtitle("Proportion of Winners Amongst Train Data") + ylab("Count") + xlab("Winner")
+```
